@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SensaAI - Multimodal Emotion Detection</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Styled CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Radial ambient glows -->
+    <div class="background-decorations">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+    
+    <div class="app-container">
+        <header>
+            <h1 class="logo-text">Sensa<span>AI</span></h1>
+            <p class="subtitle">Multimodal Emotion Analysis from Text & Voice</p>
+            {% if not models_status.all_trained %}
+            <div class="warning-banner">
+                <span class="warning-icon">⚠️</span>
+                <span><strong>Models Untrained:</strong> Some models are currently missing.
+                {% if not models_status.text_model %}Text model, {% endif %}
+                {% if not models_status.voice_model %}Voice model{% endif %}
+                must be trained before predictions will work. Run python training scripts in the project directory.</span>
+            </div>
+            {% endif %}
+        </header>
+
+        <main class="main-content">
+            <!-- Selector Tabs -->
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="text-tab">
+                    <span class="tab-icon">📝</span> Text Input
+                </button>
+                <button class="tab-btn" data-tab="voice-tab">
+                    <span class="tab-icon">🎙️</span> Voice Audio
+                </button>
+            </div>
+
+            <!-- Tab Panels -->
+            <div class="tab-panels">
+                <!-- Text Panel -->
+                <div class="tab-panel active" id="text-tab">
+                    <div class="card">
+                        <h2>Analyze Written Text</h2>
+                        <p class="card-desc">Type your sentence or paragraph to detect the emotional sentiment (Happy, Sad, Angry, Fear, Surprise, Neutral).</p>
+                        <form id="text-form">
+                            <textarea id="text-input" placeholder="Type how you are feeling today..." rows="5" required></textarea>
+                            <button type="submit" class="btn primary-btn btn-glowing" id="text-submit-btn">
+                                <span>Detect Emotion</span>
+                                <span class="spinner" id="text-spinner"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Voice Panel -->
+                <div class="tab-panel" id="voice-tab">
+                    <div class="card">
+                        <h2>Analyze Speech Audio</h2>
+                        <p class="card-desc">Upload a microphone recording (WAV/MP3 format) or record directly using the browser controller.</p>
+                        
+                        <div class="voice-modes">
+                            <!-- Option A: Recording -->
+                            <div class="voice-section record-section">
+                                <h3>Record Voice</h3>
+                                <div class="recorder-controls">
+                                    <button class="record-btn" id="record-btn" type="button" title="Start Recording">
+                                        <span class="record-icon"></span>
+                                    </button>
+                                    <div class="recorder-status" id="recording-status">Click to record (max 10s)</div>
+                                    <div class="timer" id="recording-timer">00:00</div>
+                                </div>
+                                <div class="audio-playback-container hidden" id="playback-container">
+                                    <audio id="audio-playback" controls></audio>
+                                </div>
+                            </div>
+                            
+                            <div class="divider">
+                                <span>OR</span>
+                            </div>
+
+                            <!-- Option B: File Upload -->
+                            <div class="voice-section upload-section">
+                                <h3>Upload File</h3>
+                                <div class="file-dropzone" id="dropzone">
+                                    <input type="file" id="audio-file" accept="audio/*" class="file-input-hidden">
+                                    <div class="dropzone-text" id="dropzone-text">
+                                        <span class="upload-cloud">📁</span>
+                                        <p>Drag & drop audio file, or <span class="browse-link">browse</span></p>
+                                        <span class="file-limits">Supports WAV, MP3, OGG, WEBM (Max 10MB)</span>
+                                    </div>
+                                    <div class="file-selected-banner hidden" id="file-banner">
+                                        <span class="file-name" id="selected-file-name">filename.wav</span>
+                                        <button class="remove-file-btn" id="remove-file" type="button" title="Remove File">×</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="submit-voice-container">
+                            <button type="button" class="btn primary-btn btn-glowing disabled" id="voice-submit-btn" disabled>
+                                <span>Analyze Audio</span>
+                                <span class="spinner" id="voice-spinner"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Result Panels -->
+            <div class="result-card card hidden" id="results-container">
+                <div class="results-header">
+                    <h2>Analysis Results</h2>
+                    <div class="detected-badge">
+                        <span class="emoji" id="result-emoji">😐</span>
+                        <div class="badge-text">
+                            <span class="badge-title">Primary Emotion</span>
+                            <span class="badge-val" id="result-emotion">Neutral</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="card-divider">
+
+                <div class="probabilities-container">
+                    <h3>Probability Distribution</h3>
+                    <div class="bars-list" id="confidence-bars">
+                        <!-- Instantiated Dynamically via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Disclaimer notes -->
+                <div class="note-container hidden" id="model-notes">
+                    <span class="note-icon">ℹ️</span>
+                    <p class="note-text" id="note-content">Disclaimer</p>
+                </div>
+            </div>
+            
+            <!-- Error Banner -->
+            <div class="error-container card hidden" id="error-card">
+                <span class="error-icon">❌</span>
+                <div class="error-content">
+                    <h4>Analysis Error</h4>
+                    <p id="error-message">Something went wrong.</p>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>SensaAI Emotion Classifier &copy; 2026. Powered by Flask, Librosa, and Scikit-Learn.</p>
+        </footer>
+    </div>
+
+    <!-- Interface Script -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
